@@ -1,4 +1,5 @@
 #include <ast.h>
+#include <parser.h>
 #include <stdio.h>
 
 const char* ciwic_expr_unary_op_table[] = {
@@ -10,11 +11,62 @@ const char* ciwic_expr_binary_op_table[] = { "mul", "div", "mod", "add",
     "less or eq", "greater or eq", "eq", "neq", "and", "xor", "or", "land",
     "lor", "comma" };
 
+int ciwic_declarator_is_abstract(ciwic_declarator *declarator) {
+    if (declarator->type == ciwic_declarator_identifier) {
+        return 0;
+    }
+
+    if (declarator->inner != NULL)
+        return ciwic_declarator_is_abstract(declarator->inner);
+
+    return 1;
+}
+
 void ciwic_print_arg_list(ciwic_expr_arg_list *list, int indent) {
     printf("%*carg list:\n", indent, ' ');
     ciwic_print_expr(&list->head, indent+4);
     if (list->rest != NULL) {
         ciwic_print_arg_list(list->rest, indent+4);
+    }
+}
+
+void ciwic_print_type_name(ciwic_type_name *name, int indent) {
+    printf("%*ctype name: \n", indent, ' ');
+    ciwic_print_declaration_specifiers(&name->specifiers, indent+4);
+    if (name->declarator != NULL) 
+        ciwic_print_declarator(name->declarator, indent+4);
+}
+
+void ciwic_print_designator_list(ciwic_designator_list *list, int indent) {
+    printf("%*cdesignator list: ", indent, ' ');
+
+    switch (list->type) {
+        case ciwic_designator_expr:
+            printf("expr\n");
+            ciwic_print_expr(&list->expr, indent+4);
+            break;
+        case ciwic_designator_ident:
+            printf("ident\n");
+            printf("%*cidentifier: %.*s\n", indent+4, ' ', list->ident.len, list->ident.text);
+            break;
+    }
+
+    if (list->rest != NULL) {
+        ciwic_print_designator_list(list->rest, indent+4);
+    }
+}
+
+void ciwic_print_initializer_list(ciwic_initializer_list *list, int indent) {
+    printf("%*cinitializer list: \n", indent, ' ');
+
+    if (list->designation != NULL) {
+        ciwic_print_designator_list(list->designation, indent+4);
+    }
+
+    ciwic_print_initializer(list->initializer, indent+4);
+
+    if (list->rest != NULL) {
+        ciwic_print_initializer_list(list->rest, indent+4);
     }
 }
 
@@ -71,11 +123,11 @@ void ciwic_print_expr(ciwic_expr *expr, int indent) {
             break;
         case ciwic_expr_type_sizeof_type:
             printf("%*csizeof type: \n", indent, ' ');
-            // TODO: print type name
+            ciwic_print_type_name(&expr->sizeof_type, indent+4);
             break;
         case ciwic_expr_type_cast:
             printf("%*ccast: \n", indent, ' ');
-            // TODO: print type name
+            ciwic_print_type_name(&expr->cast.type_name, indent+4);
             ciwic_print_expr(expr->cast.expr, indent+4);
             break;
         case ciwic_expr_type_conditional:
@@ -93,3 +145,192 @@ void ciwic_print_expr(ciwic_expr *expr, int indent) {
     }
 }
 
+void ciwic_print_type_qualifiers(int type_qualifiers, int indent) {
+    if (type_qualifiers & ciwic_type_qualifier_const)
+        printf("%*ctype qualifier: const\n", indent, ' ');
+
+    if (type_qualifiers & ciwic_type_qualifier_restrict)
+        printf("%*ctype qualifier: restrict\n", indent, ' ');
+
+    if (type_qualifiers & ciwic_type_qualifier_volatile)
+        printf("%*ctype qualifier: volatile\n", indent, ' ');
+}
+
+void ciwic_print_declaration_specifiers(ciwic_declaration_specifiers *specs, int indent) {
+    printf("%*cdeclaration specifiers: \n", indent, ' ');
+    
+    if (specs->storage_class & ciwic_specifier_typedef)
+        printf("%*cstorage class: typedef\n", indent+4, ' ');
+
+    if (specs->storage_class & ciwic_specifier_extern)
+        printf("%*cstorage class: extern\n", indent+4, ' ');
+
+    if (specs->storage_class & ciwic_specifier_static)
+        printf("%*cstorage class: static\n", indent+4, ' ');
+
+    if (specs->storage_class & ciwic_specifier_auto)
+        printf("%*cstorage class: auto\n", indent+4, ' ');
+
+    if (specs->storage_class & ciwic_specifier_register)
+        printf("%*cstorage class: register\n", indent+4, ' ');
+
+    if (specs->func_specifiers & ciwic_function_specifier_inline)
+        printf("%*cfunction specifier: inline\n", indent+4, ' ');
+
+    ciwic_print_type_qualifiers(specs->type_qualifiers, indent+4);
+
+    if (specs->type_spec == ciwic_type_spec_prim) {
+        for (int i = 0; i < 12; i++) {
+            if (specs->prim_type & ciwic_prim_types_list[i])
+                printf("%*ctype specifier: %s\n", indent+4, ' ', ciwic_prim_types_keywords[i]);
+        }
+    }
+
+    if (specs->type_spec == ciwic_type_spec_enum) {
+        printf("%*ctype specifier: enum\n", indent+4, ' ');
+        if (specs->enum_.identifier != NULL) {
+            printf("%*cident: ", indent+8, ' ');
+            printf("%.*s\n", specs->enum_.identifier->len, specs->enum_.identifier->text);
+        }
+        if (specs->enum_.decl != NULL) {
+            int di = 8;
+            ciwic_enum_list *decl = specs->enum_.decl;
+
+            while (decl != NULL) {
+                printf("%*cenum list: ", indent+di, ' ');
+                printf("%.*s\n", decl->name.len, decl->name.text);
+                if (decl->expr != NULL) {
+                    ciwic_print_expr(decl->expr, indent+di+4);
+                }
+                di += 4;
+                decl = decl->rest;
+            }
+        }
+    }
+
+    if (specs->type_spec == ciwic_type_spec_struct || specs->type_spec == ciwic_type_spec_union) {
+        printf("%*ctype specifier: ", indent+4, ' ');
+        if (specs->type_spec == ciwic_type_spec_struct)
+            printf("struct\n");
+        else
+            printf("union\n");
+        if (specs->struct_or_union.identifier != NULL) {
+            printf("%*cident: ", indent+8, ' ');
+            printf("%.*s\n", specs->struct_or_union.identifier->len, specs->struct_or_union.identifier->text);
+        }
+        if (specs->struct_or_union.decl != NULL) {
+            int di = 8;
+            ciwic_struct_list *decl = specs->struct_or_union.decl;
+
+            while (decl != NULL) {
+                printf("%*cstruct list: \n", indent+di, ' ');
+                ciwic_print_declaration_specifiers(&decl->specifiers, indent+di+4);
+                ciwic_struct_declarator_list *list = &decl->declarator_list;
+                int dj = di+4;
+
+                while (list != NULL) {
+                    printf("%*cstruct declarator list: \n", indent+dj, ' ');
+                    if (list->declarator != NULL)
+                        ciwic_print_declarator(list->declarator, indent+dj+4);
+                    if (list->expr != NULL)
+                        ciwic_print_expr(list->expr, indent+dj+4);
+
+                    dj += 4;
+                    list = list->rest;
+                }
+
+                di += 4;
+                decl = decl->rest;
+            }
+        }
+    }
+
+    if (specs->type_spec == ciwic_type_spec_typedef_name) {
+        printf("%*ctypedef name: ", indent+4, ' ');
+        printf("%.*s\n", specs->typedef_name.len, specs->typedef_name.text);
+    }
+}
+
+void ciwic_print_declarator(ciwic_declarator *decl, int indent) {
+    switch (decl->type) {
+        case ciwic_declarator_pointer:
+            printf("%*cdeclarator: pointer\n", indent, ' ');
+            ciwic_print_type_qualifiers(decl->pointer_qualifiers, indent+4);
+            break;
+        case ciwic_declarator_identifier:
+            printf("%*cdeclarator: identifier\n", indent, ' ');
+            printf("%*cident: %.*s\n", indent+4, ' ', decl->ident.len, decl->ident.text);
+            break;
+        case ciwic_declarator_array:
+            printf("%*cdeclarator: array\n", indent, ' ');
+            if (decl->array.is_static) {
+                printf("%*cstorage class: static\n", indent+4, ' ');
+            }
+            ciwic_print_type_qualifiers(decl->array.type_qualifiers, indent+4);
+            if (decl->array.is_var_len) {
+                printf("%*cvar len\n", indent+4, ' ');
+            }
+            if (decl->array.expr != NULL)
+                ciwic_print_expr(decl->array.expr, indent+4);
+            break;
+        case ciwic_declarator_func:
+            printf("%*cdeclarator: func\n", indent, ' ');
+            ciwic_param_list *list = decl->func.param_list;
+            int di = 4;
+
+            while (list != NULL) {
+                printf("%*cparam list: \n", indent+di, ' ');
+
+                ciwic_print_declaration_specifiers(&list->specifiers, indent+di+4);
+
+                if (list->declarator != NULL) {
+                    ciwic_print_declarator(list->declarator, indent+di+4);
+                }
+
+                di += 4;
+                list = list->rest;
+            }
+
+            if (decl->func.has_ellipsis) {
+                printf("%*cellipsis\n", indent, ' ');
+            }
+            break;
+    }
+    
+    if (decl->inner != NULL) {
+        ciwic_print_declarator(decl->inner, indent+4);
+    }
+}
+
+void ciwic_print_initializer(ciwic_initializer *init, int indent) {
+    printf("%*cinitializer: ", indent, ' ');
+    switch (init->type) {
+        case ciwic_initializer_init_expr:
+            printf("expr\n");
+            ciwic_print_expr(&init->expr, indent + 4);
+            break;
+        case ciwic_initializer_init_list:
+            printf("list\n");
+            ciwic_print_initializer_list(&init->list, indent + 4);
+            break;
+    }
+}
+
+void ciwic_print_declaration(ciwic_declaration *decl, int indent) {
+    printf("%*cdeclaration: \n", indent, ' ');
+    ciwic_print_declaration_specifiers(&decl->specifiers, indent+4);
+
+    ciwic_init_declarator_list *list = &decl->list;
+    int nindent = indent + 4;
+
+    while (list != NULL) {
+        printf("%*cinit declarator list: \n", nindent, ' ');
+        ciwic_print_declarator(&list->declarator, nindent+4);
+        if (list->initializer != NULL) {
+            ciwic_print_initializer(list->initializer, nindent+4);
+        }
+
+        nindent = nindent + 4;
+        list = list->rest;
+    }
+}

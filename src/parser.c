@@ -10,13 +10,24 @@
  * http://www.open-std.org/jtc1/sc22/WG14/www/docs/n1256.pdf
  */
 
-const int ciwic_parser_keywords_len = 32;
-const char* ciwic_parser_keywords[32] = {
+const int ciwic_parser_keywords_len = 37;
+const char* ciwic_parser_keywords[37] = {
     "auto", "break", "case", "char", "const", "continue", "default", "do",
-    "double", "else", "enum", "extern", "float", "for", "goto", "if", "int",
-    "long", "register", "return", "short", "signed", "sizeof", "static",
-    "struct", "switch", "typedef", "union", "unsigned", "void", "volatile",
-    "while" };
+    "double", "else", "enum", "extern", "float", "for", "goto", "if", "inline",
+    "int", "long", "register", "restrict", "return", "short", "signed",
+    "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned",
+    "void", "volatile", "while", "_Bool", "_Complex", "_Imaginary" };
+
+const char* ciwic_prim_types_keywords[12] = {"void", "char", "short", "int",
+    "long", "long", "float", "double", "signed", "unsigned", "_Bool",
+    "_Complex"};
+
+const ciwic_type_prim ciwic_prim_types_list[12] = {ciwic_type_void,
+    ciwic_type_char, ciwic_type_short, ciwic_type_int, ciwic_type_long,
+    ciwic_type_long_long, ciwic_type_float, ciwic_type_double,
+    ciwic_type_signed, ciwic_type_unsigned, ciwic_type_bool,
+    ciwic_type_complex};
+
 
 ciwic_parser ciwic_parser_new(char *buf, int len) {
     ciwic_parser res;
@@ -332,7 +343,6 @@ int ciwic_parser_primary_expr(ciwic_parser *parser, ciwic_expr *res) {
             parser->pos = pos;
             return 1;
         }
-        printf("found primary parens\n");
         return 0;
     }
 
@@ -736,11 +746,12 @@ int ciwic_parser_logical_or_expr(ciwic_parser *parser, ciwic_expr *res) {
 }
 
 int ciwic_parser_conditional_expr(ciwic_parser *parser, ciwic_expr *cond, ciwic_expr *res) {
-    ciwic_expr left, right;
+    ciwic_expr first, left, right;
 
     int pos = parser->pos;
 
     if (cond == NULL) {
+        cond = &first;
         if (ciwic_parser_logical_or_expr(parser, cond)) {
             parser->pos = pos;
             return 1;
@@ -776,6 +787,10 @@ int ciwic_parser_conditional_expr(ciwic_parser *parser, ciwic_expr *cond, ciwic_
     *res->conditional.right = right;
 
     return 0;
+}
+
+int ciwic_parser_const_expr(ciwic_parser *parser, ciwic_expr *expr) {
+    return ciwic_parser_conditional_expr(parser, NULL, expr);
 }
 
 int ciwic_parser_conditional_expr_with_unary(ciwic_parser *parser, ciwic_expr *unary, ciwic_expr *res) {
@@ -819,8 +834,8 @@ int ciwic_parser_assignment_expr(ciwic_parser *parser, ciwic_expr *res) {
     int pos = parser->pos;
 
     if (ciwic_parser_unary_expr(parser, &left)) {
-        parser->pos = pos;
-        return 1;
+        // FIXME: this is inefficient
+        return ciwic_parser_conditional_expr(parser, NULL, res);
     }
 
     for (int i = 0; i < 11; i++) {
@@ -879,12 +894,867 @@ int ciwic_parser_expr(ciwic_parser *parser, ciwic_expr *res) {
     return 0;
 }
 
-int ciwic_parser_initializer_list(ciwic_parser *parser, ciwic_initializer_list *list) {
-    // TODO: implement this
+// Declarations
+
+int ciwic_parser_storage_class(ciwic_parser *parser, ciwic_storage_class *storage) {
+    if (!ciwic_parser_keyword(parser, "typedef")) {
+        *storage = ciwic_specifier_typedef;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "extern")) {
+        *storage = ciwic_specifier_extern;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "static")) {
+        *storage = ciwic_specifier_static;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "auto")) {
+        *storage = ciwic_specifier_auto;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "register")) {
+        *storage = ciwic_specifier_register;
+        return 0;
+    }
+
+    return 1;
+}
+
+int ciwic_parser_type_qualifier(ciwic_parser *parser, ciwic_type_qualifier *qualifier) {
+    if (!ciwic_parser_keyword(parser, "const")) {
+        *qualifier = ciwic_type_qualifier_const;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "restrict")) {
+        *qualifier = ciwic_type_qualifier_restrict;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "volatile")) {
+        *qualifier = ciwic_type_qualifier_volatile;
+        return 0;
+    }
+
+    return 1;
+}
+
+int ciwic_parser_function_specifier(ciwic_parser *parser, ciwic_function_specifier *specifier) {
+    if (!ciwic_parser_keyword(parser, "inline")) {
+        *specifier = ciwic_function_specifier_inline;
+        return 0;
+    }
+
+    return 1;
+}
+
+int ciwic_parser_type_prim(ciwic_parser *parser, ciwic_type_prim *type) {
+    for (int i = 0; i < 12; i++) {
+        if(!ciwic_parser_keyword(parser, ciwic_prim_types_keywords[i])) {
+            *type = ciwic_prim_types_list[i];
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int ciwic_parser_enum_list_inner(ciwic_parser *parser, ciwic_enum_list *list) {
+    string name;
+    ciwic_expr expr;
+    ciwic_expr *expr_ptr = NULL;
+    ciwic_enum_list inner;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_identifier(parser, &name)) {
+        return 0;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, "=")) {
+        if (ciwic_parser_const_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+        expr_ptr = malloc(sizeof(ciwic_expr));
+        *expr_ptr = expr;
+    }
+
+    list->name = name;
+    list->expr = expr_ptr;
+
+    int comma_res = ciwic_parser_match_punctuation(parser, ",");
+
+    if (comma_res || ciwic_parser_enum_list_inner(parser, &inner)) {
+        list->rest = NULL;
+        return 0;
+    }
+
+    list->rest = malloc(sizeof(ciwic_enum_list));
+    *list->rest = inner;
+
+    return 0;
+}
+
+int ciwic_parser_enum_list(ciwic_parser *parser, ciwic_enum_list *list) {
+    ciwic_enum_list inner;
+    int pos = parser->pos;
+
+    if (ciwic_parser_match_punctuation(parser, "{")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_enum_list_inner(parser, &inner)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_match_punctuation(parser, "}")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *list = inner;
+    return 0;
+}
+
+int ciwic_parser_struct_declarator_list(ciwic_parser *parser, ciwic_struct_declarator_list *list) {
+    ciwic_declarator decl;
+    ciwic_expr expr;
+    ciwic_struct_declarator_list rest;
+    int expr_res = 1, rest_res = 1;
+
+    int pos = parser->pos;
+
+    int decl_res = ciwic_parser_declarator(parser, NULL, &decl);
+
+    if (!ciwic_parser_match_punctuation(parser, ":")) {
+        if ((expr_res = ciwic_parser_const_expr(parser, &expr))) {
+           parser->pos = pos;
+            return 1;
+        }
+    }
+
+    if (decl_res && expr_res) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, ",")) {
+        if ((rest_res = ciwic_parser_struct_declarator_list(parser, &rest))) {
+            parser->pos = pos;
+            return 1;
+        }
+    }
+
+    if (!decl_res) {
+        list->declarator = malloc(sizeof(ciwic_declarator));
+        *list->declarator = decl;
+    } else {
+        list->declarator = NULL;
+    }
+
+    if (!expr_res) {
+        list->expr = malloc(sizeof(ciwic_expr));
+        *list->expr = expr;
+    } else {
+        list->expr = NULL;
+    }
+
+    if (!rest_res) {
+        list->rest = malloc(sizeof(ciwic_struct_declarator_list));
+        *list->rest = rest;
+    } else {
+        list->rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_specifier_qualifier_list(ciwic_parser *parser, ciwic_declaration_specifiers* specifiers) {
+    ciwic_declaration_specifiers specs;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration_specifiers(parser, &specs)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (specs.storage_class != 0) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (specs.func_specifiers != 0) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *specifiers = specs;
+    return 0;
+}
+
+int ciwic_parser_struct_list_inner(ciwic_parser *parser, ciwic_struct_list *list) {
+    ciwic_declaration_specifiers specifiers;
+    ciwic_struct_declarator_list decl_list;
+    ciwic_struct_list rest;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_specifier_qualifier_list(parser, &specifiers)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_struct_declarator_list(parser, &decl_list)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_match_punctuation(parser, ";")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_struct_list_inner(parser, &rest)) {
+        list->specifiers = specifiers;
+        list->declarator_list = decl_list;
+        list->rest = NULL;
+        return 0;
+    }
+
+    list->specifiers = specifiers;
+    list->declarator_list = decl_list;
+    list->rest = malloc(sizeof(ciwic_struct_list));
+    *list->rest = rest;
+    return 0;
+}
+
+int ciwic_parser_struct_list(ciwic_parser *parser, ciwic_struct_list *list) {
+    ciwic_struct_list inner;
+    int pos = parser->pos;
+
+    if (ciwic_parser_match_punctuation(parser, "{")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_struct_list_inner(parser, &inner)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_match_punctuation(parser, "}")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *list = inner;
+    return 0;
+}
+
+int ciwic_parser_declaration_specifiers(ciwic_parser *parser, ciwic_declaration_specifiers* specifiers) {
+    ciwic_storage_class storage_class;
+    ciwic_function_specifier function_specifier;
+    ciwic_type_qualifier type_qualifier;
+    ciwic_type_prim prim_type;
+    ciwic_declaration_specifiers inner = {
+        .storage_class = 0,
+        .func_specifiers = 0,
+        .type_qualifiers = 0,
+        .type_spec = ciwic_type_spec_none
+    };
+    int is_struct;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_storage_class(parser, &storage_class)) {
+        ciwic_parser_declaration_specifiers(parser, &inner);
+        inner.storage_class |= storage_class;
+        *specifiers = inner;
+        return 0;
+    }
+
+    if (!ciwic_parser_function_specifier(parser, &function_specifier)) {
+        ciwic_parser_declaration_specifiers(parser, &inner);
+        inner.func_specifiers |= function_specifier;
+        *specifiers = inner;
+        return 0;
+    }
+
+    if (!ciwic_parser_type_qualifier(parser, &type_qualifier)) {
+        ciwic_parser_declaration_specifiers(parser, &inner);
+        inner.type_qualifiers |= type_qualifier;
+        *specifiers = inner;
+        return 0;
+    }
+
+    if (!ciwic_parser_type_prim(parser, &prim_type)) {
+        ciwic_parser_declaration_specifiers(parser, &inner);
+        if (inner.type_spec == ciwic_type_spec_prim) {
+            if (prim_type == ciwic_type_long && inner.prim_type & ciwic_type_long) {
+                if (inner.prim_type & ciwic_type_long_long) {
+                    // We cannot have more than two longs
+                    parser->pos = pos;
+                    return 1;
+                }
+                inner.prim_type |= ciwic_type_long_long;
+            } else if (inner.prim_type & prim_type) {
+                // We cannot have more of one of any other type specifiers
+                parser->pos = pos;
+                return 1;
+            } else {
+                inner.prim_type |= prim_type;
+            }
+        } else if (inner.type_spec == ciwic_type_spec_none) {
+            inner.type_spec = ciwic_type_spec_prim;
+            inner.prim_type |= prim_type;
+        } else {
+            // We cannot have a primitive type at the same time as another type
+            // specifier
+            parser->pos = pos;
+            return 1;
+        }
+
+        *specifiers = inner;
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "enum")) {
+        string identifier;
+        ciwic_enum_list decl;
+
+        int ident_res = ciwic_parser_identifier(parser, &identifier);
+        int decl_res  = ciwic_parser_enum_list(parser, &decl);
+
+        if (!ident_res && !decl_res) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        ciwic_parser_declaration_specifiers(parser, &inner);
+
+        if (inner.type_spec != ciwic_type_spec_none) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        inner.type_spec = ciwic_type_spec_enum;
+        if (!ident_res) {
+            inner.enum_.identifier  = malloc(sizeof(string));
+            *inner.enum_.identifier = identifier;
+        }
+        if (!decl_res) {
+            inner.enum_.decl  = malloc(sizeof(ciwic_enum_list));
+            *inner.enum_.decl = decl;
+        }
+
+        *specifiers = inner;
+        return 0;
+    }
+
+    if ((is_struct = !ciwic_parser_keyword(parser, "struct")) || !ciwic_parser_keyword(parser, "union")) {
+        string identifier;
+        ciwic_struct_list decl;
+
+        int ident_res = ciwic_parser_identifier(parser, &identifier);
+        int decl_res = ciwic_parser_struct_list(parser, &decl);
+
+        if (ident_res && decl_res) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        ciwic_parser_declaration_specifiers(parser, &inner);
+
+        if (inner.type_spec != ciwic_type_spec_none) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (is_struct)
+            inner.type_spec = ciwic_type_spec_struct;
+        else 
+            inner.type_spec = ciwic_type_spec_union;
+
+        if (!ident_res) {
+            inner.struct_or_union.identifier  = malloc(sizeof(string));
+            *inner.struct_or_union.identifier = identifier;
+        }
+        if (!decl_res) {
+            inner.struct_or_union.decl  = malloc(sizeof(ciwic_struct_list));
+            *inner.struct_or_union.decl = decl;
+        }
+
+        *specifiers = inner;
+        return 0;
+    }
+
+    // TODO: typedef name
+
+    return 1;
+}
+
+int ciwic_parser_type_qualifiers(ciwic_parser *parser, int *type_qualifiers) {
+    ciwic_type_qualifier type_qual;
+
+    if (ciwic_parser_type_qualifier(parser, &type_qual)) {
+        return 1;
+    }
+
+    if (ciwic_parser_type_qualifiers(parser, type_qualifiers)) {
+        *type_qualifiers = type_qual;
+        return 0;
+    }
+
+    *type_qualifiers |= type_qual;
+    return 0;
+}
+
+int ciwic_parser_param_list(ciwic_parser *parser, ciwic_param_list *params) {
+    ciwic_declaration_specifiers specifiers;
+    ciwic_declarator declarator;
+    ciwic_param_list rest;
+    int has_rest = 0;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration_specifiers(parser, &specifiers)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int has_declarator = !ciwic_parser_declarator(parser, NULL, &declarator);
+
+    int last_pos = parser->pos;
+    if (!ciwic_parser_match_punctuation(parser, ",")) {
+        if (ciwic_parser_param_list(parser, &rest)) {
+            parser->pos = last_pos;
+        } else {
+            has_rest = 1;
+        }
+    }
+
+    params->specifiers = specifiers;
+
+    if (has_declarator) {
+        params->declarator = malloc(sizeof(ciwic_declarator));
+        *params->declarator = declarator;
+    } else {
+        params->declarator = NULL;
+    }
+
+    if (has_rest) {
+        params->rest = malloc(sizeof(ciwic_param_list));
+        *params->rest = rest;
+    } else {
+        params->rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_declarator *decl) {
+    ciwic_declarator outer, inner;
+    string ident;
+
+    int pos = parser->pos;
+
+    if (prev == NULL) {
+        if (!ciwic_parser_match_punctuation(parser, "*")) {
+            int pointer_qualifiers = 0;
+            ciwic_parser_type_qualifiers(parser, &pointer_qualifiers);
+
+            int has_inner = !ciwic_parser_declarator(parser, NULL, &inner);
+
+            outer.type = ciwic_declarator_pointer;
+            if (has_inner) {
+                outer.inner = malloc(sizeof(ciwic_declarator));
+                *outer.inner = inner;
+            } else {
+                outer.inner = NULL;
+            }
+            outer.pointer_qualifiers = pointer_qualifiers;
+
+            if (ciwic_parser_declarator(parser, &outer, decl)) {
+                parser->pos = pos;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        if (!ciwic_parser_identifier(parser, &ident)) {
+            outer.type = ciwic_declarator_identifier;
+            outer.inner = NULL;
+            outer.ident = ident;
+
+            if (ciwic_parser_declarator(parser, &outer, decl)) {
+                parser->pos = pos;
+                return 1;
+            }
+
+            return 0;
+        }
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, "[")) {
+        int is_static = 0;
+        int is_var_len = 0;
+        int type_qualifiers = 0;
+        int has_expr = 0;
+        ciwic_expr expr;
+
+        if (!ciwic_parser_keyword(parser, "static")) {
+            is_static = 1;
+        }
+
+        ciwic_parser_type_qualifiers(parser, &type_qualifiers);
+
+        if (!is_static && !ciwic_parser_keyword(parser, "static")) {
+            is_static = 1;
+        }
+
+        if (!is_static && !ciwic_parser_match_punctuation(parser, "*")) {
+            is_var_len = 1;
+        }
+
+        if (!is_var_len && !ciwic_parser_expr(parser, &expr)) {
+            has_expr = 1;
+        }
+
+        if (ciwic_parser_match_punctuation(parser, "]")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        inner.type = ciwic_declarator_array;
+        if (prev != NULL) {
+            inner.inner = malloc(sizeof(ciwic_declarator));
+            *inner.inner = *prev;
+        } else {
+            inner.inner = NULL;
+        }
+        inner.array.is_static = is_static;
+        inner.array.is_var_len = is_var_len;
+        inner.array.type_qualifiers = type_qualifiers;
+        if (has_expr) {
+            inner.array.expr = malloc(sizeof(ciwic_expr));
+            *inner.array.expr = expr;
+        } else {
+            inner.array.expr = NULL;
+        }
+
+        if (ciwic_parser_declarator(parser, &inner, decl)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, "(")) {
+        if (!ciwic_parser_declarator(parser, NULL, &inner)) {
+            if (ciwic_parser_match_punctuation(parser, ")")) {
+                parser->pos = pos;
+                return 1;
+            }
+
+            if (ciwic_parser_declarator(parser, &inner, decl)) {
+                parser->pos = pos;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        ciwic_param_list params;
+
+        int has_params = !ciwic_parser_param_list(parser, &params);
+        int has_ellipsis = 0;
+
+        if (!ciwic_parser_match_punctuation(parser, ",")) {
+            if (ciwic_parser_match_punctuation(parser, "...")) {
+                parser->pos = pos;
+                return 1;
+            } else {
+                has_ellipsis = 1;
+            }
+        }
+
+        if (ciwic_parser_match_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        inner.type = ciwic_declarator_func;
+        if (prev != NULL) {
+            inner.inner = malloc(sizeof(ciwic_declarator));
+            *inner.inner = *prev;
+        } else {
+            inner.inner = NULL;
+        }
+        inner.func.has_ellipsis = has_ellipsis;
+        
+        if (has_params) {
+            inner.func.param_list = malloc(sizeof(ciwic_param_list));
+            *inner.func.param_list = params;
+        } else {
+            inner.func.param_list = NULL;
+        }
+
+        if (ciwic_parser_declarator(parser, &inner, decl)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (prev != NULL) {
+        *decl = *prev;
+
+        return 0;
+    }
+
     return 1;
 }
 
 int ciwic_parser_type_name(ciwic_parser *parser, ciwic_type_name *name) {
-    // TODO: implement this
+    ciwic_declaration_specifiers specifiers;
+    ciwic_declarator declarator;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration_specifiers(parser, &specifiers)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int has_declarator = !ciwic_parser_declarator(parser, NULL, &declarator);
+
+    if (has_declarator && !ciwic_declarator_is_abstract(&declarator)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    name->specifiers = specifiers;
+
+    if (has_declarator) {
+        name->declarator = malloc(sizeof(ciwic_declarator));
+        *name->declarator = declarator;
+    } else {
+        name->declarator = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_designation(ciwic_parser *parser, ciwic_designator_list *designation) {
+    ciwic_designator_list rest;
+    int pos = parser->pos;
+
+    if (!ciwic_parser_match_punctuation(parser, "[")) {
+        ciwic_expr expr;
+        if (ciwic_parser_const_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_match_punctuation(parser, "]")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (!ciwic_parser_designation(parser, &rest)) {
+            designation->rest = malloc(sizeof(ciwic_designator_list));
+            *designation->rest = rest;
+        } else {
+            designation->rest = NULL;
+        }
+
+        designation->type = ciwic_designator_expr;
+        designation->expr = expr;
+        return 0;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, ".")) {
+        string ident;
+
+        if (ciwic_parser_identifier(parser, &ident)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (!ciwic_parser_designation(parser, &rest)) {
+            designation->rest = malloc(sizeof(ciwic_designator_list));
+            *designation->rest = rest;
+        } else {
+            designation->rest = NULL;
+        }
+
+        designation->type = ciwic_designator_ident;
+        designation->ident = ident;
+        return 0;
+    }
+
     return 1;
+}
+
+int ciwic_parser_initializer(ciwic_parser *parser, ciwic_initializer *init) {
+    ciwic_expr expr;
+    ciwic_initializer_list list;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_assignment_expr(parser, &expr)) {
+        init->type = ciwic_initializer_init_expr;
+        init->expr = expr;
+        return 0;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, "{")) {
+        if (ciwic_parser_initializer_list(parser, &list)) {
+            parser->pos = pos;
+            return 1;
+        }
+        ciwic_parser_match_punctuation(parser, ",");
+
+        if (ciwic_parser_match_punctuation(parser, "}")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        init->type = ciwic_initializer_init_list;
+        init->list = list;
+        return 0;
+    }
+
+    return 1;
+}
+
+int ciwic_parser_initializer_list(ciwic_parser *parser, ciwic_initializer_list *list) {
+    ciwic_designator_list designation;
+    ciwic_initializer initializer;
+    ciwic_initializer_list rest;
+    int has_rest = 0;
+
+    int pos = parser->pos;
+
+    int has_designator = !ciwic_parser_designation(parser, &designation);
+
+    if (has_designator && ciwic_parser_match_punctuation(parser, "=")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_initializer(parser, &initializer)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int last_pos = parser->pos;
+
+    if (!ciwic_parser_match_punctuation(parser, ",")) {
+        has_rest = !ciwic_parser_initializer_list(parser, &rest);
+        if (!has_rest) {
+            parser->pos = last_pos;
+        }
+    }
+
+    list->initializer = malloc(sizeof(ciwic_initializer));
+    *list->initializer = initializer;
+
+    if (has_designator) {
+        list->designation = malloc(sizeof(ciwic_designator_list));
+        *list->designation = designation;
+    } else {
+        list->designation = NULL;
+    }
+
+    if (has_rest) {
+        list->rest = malloc(sizeof(ciwic_initializer_list));
+        *list->rest = rest;
+    } else {
+        list->rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_init_declarator_list(ciwic_parser *parser, ciwic_init_declarator_list *list) {
+    ciwic_declarator declarator;
+    ciwic_initializer initializer;
+    ciwic_init_declarator_list rest;
+
+    int has_initializer = 0;
+    int has_rest = 0;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declarator(parser, NULL, &declarator)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_declarator_is_abstract(&declarator)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, "=")) {
+        has_initializer = !ciwic_parser_initializer(parser, &initializer);
+    }
+
+    if (!ciwic_parser_match_punctuation(parser, ",")) {
+        if (!(has_rest = !ciwic_parser_init_declarator_list(parser, &rest))) {
+            parser->pos = pos;
+            return 1;
+        }
+    }
+
+    list->declarator = declarator;
+
+    if (has_initializer) {
+        list->initializer = malloc(sizeof(ciwic_initializer));
+        *list->initializer = initializer;
+    } else {
+        list->initializer = NULL;
+    }
+
+    if (has_rest) {
+        list->rest = malloc(sizeof(ciwic_init_declarator_list));
+        *list->rest = rest;
+    } else {
+        list->rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_declaration(ciwic_parser *parser, ciwic_declaration *decl) {
+    ciwic_declaration_specifiers specifiers;
+    ciwic_init_declarator_list list;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration_specifiers(parser, &specifiers)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_init_declarator_list(parser, &list)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_match_punctuation(parser, ";")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    decl->specifiers = specifiers;
+    decl->list = list;
+    return 0;
 }
