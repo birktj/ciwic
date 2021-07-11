@@ -19,3 +19,6 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
 
 int ciwic_parser_initializer_list(ciwic_parser *parser, ciwic_initializer_list *list);
 int ciwic_parser_type_name(ciwic_parser *parser, ciwic_type_name *name);
+
+int ciwic_parser_statement(ciwic_parser *parser, ciwic_statement *name);
+

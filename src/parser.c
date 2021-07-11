@@ -296,7 +296,7 @@ int ciwic_parser_identifier(ciwic_parser *parser, string *identifier) {
     return 0;
 }
 
-int ciwic_parser_match_punctuation(ciwic_parser *parser, const char* punct) {
+int ciwic_parser_punctuation(ciwic_parser *parser, const char* punct) {
     const char* punctuators[55] = {"%:%:", "%:", "%>", "<%", ":>", "<:", "##",
         "#", ",", "|=", "^=", "&=", ">>=", "<<=", "-=", "+=", "%=", "/=", "*=",
         "==", "=", "...", ";", ":", "?", "||", "&&", "|", "^", "!=", "<=",
@@ -334,12 +334,12 @@ int ciwic_parser_primary_expr(ciwic_parser *parser, ciwic_expr *res) {
     // TODO: constant
     // TODO: string literal
 
-    if (!ciwic_parser_match_punctuation(parser, "(")) {
+    if (!ciwic_parser_punctuation(parser, "(")) {
         if (ciwic_parser_expr(parser, res)) {
             parser->pos = pos;
             return 1;
         }
-        if (ciwic_parser_match_punctuation(parser, ")")) {
+        if (ciwic_parser_punctuation(parser, ")")) {
             parser->pos = pos;
             return 1;
         }
@@ -362,7 +362,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "(")) {
+        if (!ciwic_parser_punctuation(parser, "(")) {
             ciwic_type_name type_name;
             ciwic_initializer_list initializer_list;
             if (ciwic_parser_type_name(parser, &type_name)) {
@@ -370,12 +370,12 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
                 return 1;
             }
             
-            if (ciwic_parser_match_punctuation(parser, ")")) {
+            if (ciwic_parser_punctuation(parser, ")")) {
                 parser->pos = pos;
                 return 1;
             }
 
-            if (ciwic_parser_match_punctuation(parser, "{")) {
+            if (ciwic_parser_punctuation(parser, "{")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -385,9 +385,9 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
                 return 1;
             }
 
-            ciwic_parser_match_punctuation(parser, ",");
+            ciwic_parser_punctuation(parser, ",");
 
-            if (ciwic_parser_match_punctuation(parser, "}")) {
+            if (ciwic_parser_punctuation(parser, "}")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -401,14 +401,14 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
         parser->pos = pos;
         return 1;
     } else {
-        if (!ciwic_parser_match_punctuation(parser, "[")) {
+        if (!ciwic_parser_punctuation(parser, "[")) {
             ciwic_expr subscript, expr;
             if (ciwic_parser_expr(parser, &expr)) {
                 parser->pos = pos;
                 return 1;
             }
 
-            if (ciwic_parser_match_punctuation(parser, "]")) {
+            if (ciwic_parser_punctuation(parser, "]")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -427,7 +427,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "(")) {
+        if (!ciwic_parser_punctuation(parser, "(")) {
             ciwic_expr call;
             ciwic_expr_arg_list arg_list;
 
@@ -442,7 +442,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
                 call.call.args = NULL;
             }
 
-            if (ciwic_parser_match_punctuation(parser, ")")) {
+            if (ciwic_parser_punctuation(parser, ")")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -450,7 +450,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return ciwic_parser_postfix_expr(parser, &call, res);
         }
 
-        if (!ciwic_parser_match_punctuation(parser, ".")) {
+        if (!ciwic_parser_punctuation(parser, ".")) {
             ciwic_expr member;
             string identifier;
 
@@ -471,7 +471,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "->")) {
+        if (!ciwic_parser_punctuation(parser, "->")) {
             ciwic_expr member;
             string identifier;
 
@@ -492,7 +492,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "++")) {
+        if (!ciwic_parser_punctuation(parser, "++")) {
             ciwic_expr expr;
             expr.type = ciwic_expr_type_unary_op;
             expr.unary_op.op = ciwic_expr_op_post_inc;
@@ -506,7 +506,7 @@ int ciwic_parser_postfix_expr(ciwic_parser *parser, ciwic_expr *inner, ciwic_exp
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "--")) {
+        if (!ciwic_parser_punctuation(parser, "--")) {
             ciwic_expr expr;
             expr.type = ciwic_expr_type_unary_op;
             expr.unary_op.op = ciwic_expr_op_post_dec;
@@ -537,7 +537,7 @@ int ciwic_parser_expr_arg_list(ciwic_parser *parser, ciwic_expr_arg_list *res) {
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, ",")) {
+    if (ciwic_parser_punctuation(parser, ",")) {
         res->head = arg;
         res->rest = NULL;
         return 0;
@@ -566,7 +566,7 @@ int ciwic_parser_unary_expr(ciwic_parser *parser, ciwic_expr *res) {
     int pos = parser->pos;
 
     for (int i = 0; i < 8; i++) {
-        if (!ciwic_parser_match_punctuation(parser, unary_ops_punct[i])) {
+        if (!ciwic_parser_punctuation(parser, unary_ops_punct[i])) {
             ciwic_expr inner;
             if (ciwic_parser_unary_expr(parser, &inner)) {
                 parser->pos = pos;
@@ -590,12 +590,12 @@ int ciwic_parser_unary_expr(ciwic_parser *parser, ciwic_expr *res) {
             return 0;
         }
 
-        if (!ciwic_parser_match_punctuation(parser, "(")) {
+        if (!ciwic_parser_punctuation(parser, "(")) {
             if (ciwic_parser_type_name(parser, &type_name)) {
                 parser->pos = pos;
                 return 1;
             }
-            if (ciwic_parser_match_punctuation(parser, ")")) {
+            if (ciwic_parser_punctuation(parser, ")")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -627,12 +627,12 @@ int ciwic_parser_cast_expr(ciwic_parser *parser, ciwic_expr *res) {
         return 0;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "(")) {
+    if (!ciwic_parser_punctuation(parser, "(")) {
         if (ciwic_parser_type_name(parser, &type_name)) {
             parser->pos = pos;
             return 1;
         }
-        if (ciwic_parser_match_punctuation(parser, ")")) {
+        if (ciwic_parser_punctuation(parser, ")")) {
             parser->pos = pos;
             return 1;
         }
@@ -707,7 +707,7 @@ int ciwic_parser_binop_expr(ciwic_parser *parser, int level, ciwic_expr *inner, 
         return 0;
     } else {
         for (int i = 0; i < op_table_lens[level]; i++) {
-            if (!ciwic_parser_match_punctuation(parser, op_table_punct[level][i])) {
+            if (!ciwic_parser_punctuation(parser, op_table_punct[level][i])) {
                 op = op_table_vals[level][i];
                 found_op = 1;
                 break;
@@ -758,7 +758,7 @@ int ciwic_parser_conditional_expr(ciwic_parser *parser, ciwic_expr *cond, ciwic_
         }
     }
 
-    if (ciwic_parser_match_punctuation(parser, "?")) {
+    if (ciwic_parser_punctuation(parser, "?")) {
         *res = *cond;
         return 0;
     }
@@ -768,7 +768,7 @@ int ciwic_parser_conditional_expr(ciwic_parser *parser, ciwic_expr *cond, ciwic_
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, ":")) {
+    if (ciwic_parser_punctuation(parser, ":")) {
         parser->pos = pos;
         return 1;
     }
@@ -839,7 +839,7 @@ int ciwic_parser_assignment_expr(ciwic_parser *parser, ciwic_expr *res) {
     }
 
     for (int i = 0; i < 11; i++) {
-        if (!ciwic_parser_match_punctuation(parser, op_table_punct[i])) {
+        if (!ciwic_parser_punctuation(parser, op_table_punct[i])) {
             if (ciwic_parser_assignment_expr(parser, &right)) {
                 parser->pos = pos;
                 return 1;
@@ -874,7 +874,7 @@ int ciwic_parser_expr(ciwic_parser *parser, ciwic_expr *res) {
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, ",")) {
+    if (ciwic_parser_punctuation(parser, ",")) {
         *res = fst;
         return 0;
     }
@@ -970,7 +970,7 @@ int ciwic_parser_enum_list_inner(ciwic_parser *parser, ciwic_enum_list *list) {
         return 0;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "=")) {
+    if (!ciwic_parser_punctuation(parser, "=")) {
         if (ciwic_parser_const_expr(parser, &expr)) {
             parser->pos = pos;
             return 1;
@@ -982,7 +982,7 @@ int ciwic_parser_enum_list_inner(ciwic_parser *parser, ciwic_enum_list *list) {
     list->name = name;
     list->expr = expr_ptr;
 
-    int comma_res = ciwic_parser_match_punctuation(parser, ",");
+    int comma_res = ciwic_parser_punctuation(parser, ",");
 
     if (comma_res || ciwic_parser_enum_list_inner(parser, &inner)) {
         list->rest = NULL;
@@ -999,7 +999,7 @@ int ciwic_parser_enum_list(ciwic_parser *parser, ciwic_enum_list *list) {
     ciwic_enum_list inner;
     int pos = parser->pos;
 
-    if (ciwic_parser_match_punctuation(parser, "{")) {
+    if (ciwic_parser_punctuation(parser, "{")) {
         parser->pos = pos;
         return 1;
     }
@@ -1009,7 +1009,7 @@ int ciwic_parser_enum_list(ciwic_parser *parser, ciwic_enum_list *list) {
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, "}")) {
+    if (ciwic_parser_punctuation(parser, "}")) {
         parser->pos = pos;
         return 1;
     }
@@ -1028,7 +1028,7 @@ int ciwic_parser_struct_declarator_list(ciwic_parser *parser, ciwic_struct_decla
 
     int decl_res = ciwic_parser_declarator(parser, NULL, &decl);
 
-    if (!ciwic_parser_match_punctuation(parser, ":")) {
+    if (!ciwic_parser_punctuation(parser, ":")) {
         if ((expr_res = ciwic_parser_const_expr(parser, &expr))) {
            parser->pos = pos;
             return 1;
@@ -1040,7 +1040,7 @@ int ciwic_parser_struct_declarator_list(ciwic_parser *parser, ciwic_struct_decla
         return 1;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, ",")) {
+    if (!ciwic_parser_punctuation(parser, ",")) {
         if ((rest_res = ciwic_parser_struct_declarator_list(parser, &rest))) {
             parser->pos = pos;
             return 1;
@@ -1112,7 +1112,7 @@ int ciwic_parser_struct_list_inner(ciwic_parser *parser, ciwic_struct_list *list
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, ";")) {
+    if (ciwic_parser_punctuation(parser, ";")) {
         parser->pos = pos;
         return 1;
     }
@@ -1135,7 +1135,7 @@ int ciwic_parser_struct_list(ciwic_parser *parser, ciwic_struct_list *list) {
     ciwic_struct_list inner;
     int pos = parser->pos;
 
-    if (ciwic_parser_match_punctuation(parser, "{")) {
+    if (ciwic_parser_punctuation(parser, "{")) {
         parser->pos = pos;
         return 1;
     }
@@ -1145,7 +1145,7 @@ int ciwic_parser_struct_list(ciwic_parser *parser, ciwic_struct_list *list) {
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, "}")) {
+    if (ciwic_parser_punctuation(parser, "}")) {
         parser->pos = pos;
         return 1;
     }
@@ -1328,7 +1328,7 @@ int ciwic_parser_param_list(ciwic_parser *parser, ciwic_param_list *params) {
     int has_declarator = !ciwic_parser_declarator(parser, NULL, &declarator);
 
     int last_pos = parser->pos;
-    if (!ciwic_parser_match_punctuation(parser, ",")) {
+    if (!ciwic_parser_punctuation(parser, ",")) {
         if (ciwic_parser_param_list(parser, &rest)) {
             parser->pos = last_pos;
         } else {
@@ -1362,7 +1362,7 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
     int pos = parser->pos;
 
     if (prev == NULL) {
-        if (!ciwic_parser_match_punctuation(parser, "*")) {
+        if (!ciwic_parser_punctuation(parser, "*")) {
             int pointer_qualifiers = 0;
             ciwic_parser_type_qualifiers(parser, &pointer_qualifiers);
 
@@ -1399,7 +1399,7 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
         }
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "[")) {
+    if (!ciwic_parser_punctuation(parser, "[")) {
         int is_static = 0;
         int is_var_len = 0;
         int type_qualifiers = 0;
@@ -1416,7 +1416,7 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
             is_static = 1;
         }
 
-        if (!is_static && !ciwic_parser_match_punctuation(parser, "*")) {
+        if (!is_static && !ciwic_parser_punctuation(parser, "*")) {
             is_var_len = 1;
         }
 
@@ -1424,7 +1424,7 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
             has_expr = 1;
         }
 
-        if (ciwic_parser_match_punctuation(parser, "]")) {
+        if (ciwic_parser_punctuation(parser, "]")) {
             parser->pos = pos;
             return 1;
         }
@@ -1454,9 +1454,9 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
         return 0;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "(")) {
+    if (!ciwic_parser_punctuation(parser, "(")) {
         if (!ciwic_parser_declarator(parser, NULL, &inner)) {
-            if (ciwic_parser_match_punctuation(parser, ")")) {
+            if (ciwic_parser_punctuation(parser, ")")) {
                 parser->pos = pos;
                 return 1;
             }
@@ -1474,8 +1474,8 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
         int has_params = !ciwic_parser_param_list(parser, &params);
         int has_ellipsis = 0;
 
-        if (!ciwic_parser_match_punctuation(parser, ",")) {
-            if (ciwic_parser_match_punctuation(parser, "...")) {
+        if (!ciwic_parser_punctuation(parser, ",")) {
+            if (ciwic_parser_punctuation(parser, "...")) {
                 parser->pos = pos;
                 return 1;
             } else {
@@ -1483,7 +1483,7 @@ int ciwic_parser_declarator(ciwic_parser *parser, ciwic_declarator *prev, ciwic_
             }
         }
 
-        if (ciwic_parser_match_punctuation(parser, ")")) {
+        if (ciwic_parser_punctuation(parser, ")")) {
             parser->pos = pos;
             return 1;
         }
@@ -1555,14 +1555,14 @@ int ciwic_parser_designation(ciwic_parser *parser, ciwic_designator_list *design
     ciwic_designator_list rest;
     int pos = parser->pos;
 
-    if (!ciwic_parser_match_punctuation(parser, "[")) {
+    if (!ciwic_parser_punctuation(parser, "[")) {
         ciwic_expr expr;
         if (ciwic_parser_const_expr(parser, &expr)) {
             parser->pos = pos;
             return 1;
         }
 
-        if (ciwic_parser_match_punctuation(parser, "]")) {
+        if (ciwic_parser_punctuation(parser, "]")) {
             parser->pos = pos;
             return 1;
         }
@@ -1579,7 +1579,7 @@ int ciwic_parser_designation(ciwic_parser *parser, ciwic_designator_list *design
         return 0;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, ".")) {
+    if (!ciwic_parser_punctuation(parser, ".")) {
         string ident;
 
         if (ciwic_parser_identifier(parser, &ident)) {
@@ -1614,14 +1614,14 @@ int ciwic_parser_initializer(ciwic_parser *parser, ciwic_initializer *init) {
         return 0;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "{")) {
+    if (!ciwic_parser_punctuation(parser, "{")) {
         if (ciwic_parser_initializer_list(parser, &list)) {
             parser->pos = pos;
             return 1;
         }
-        ciwic_parser_match_punctuation(parser, ",");
+        ciwic_parser_punctuation(parser, ",");
 
-        if (ciwic_parser_match_punctuation(parser, "}")) {
+        if (ciwic_parser_punctuation(parser, "}")) {
             parser->pos = pos;
             return 1;
         }
@@ -1644,7 +1644,7 @@ int ciwic_parser_initializer_list(ciwic_parser *parser, ciwic_initializer_list *
 
     int has_designator = !ciwic_parser_designation(parser, &designation);
 
-    if (has_designator && ciwic_parser_match_punctuation(parser, "=")) {
+    if (has_designator && ciwic_parser_punctuation(parser, "=")) {
         parser->pos = pos;
         return 1;
     }
@@ -1656,7 +1656,7 @@ int ciwic_parser_initializer_list(ciwic_parser *parser, ciwic_initializer_list *
 
     int last_pos = parser->pos;
 
-    if (!ciwic_parser_match_punctuation(parser, ",")) {
+    if (!ciwic_parser_punctuation(parser, ",")) {
         has_rest = !ciwic_parser_initializer_list(parser, &rest);
         if (!has_rest) {
             parser->pos = last_pos;
@@ -1703,11 +1703,11 @@ int ciwic_parser_init_declarator_list(ciwic_parser *parser, ciwic_init_declarato
         return 1;
     }
 
-    if (!ciwic_parser_match_punctuation(parser, "=")) {
+    if (!ciwic_parser_punctuation(parser, "=")) {
         has_initializer = !ciwic_parser_initializer(parser, &initializer);
     }
 
-    if (!ciwic_parser_match_punctuation(parser, ",")) {
+    if (!ciwic_parser_punctuation(parser, ",")) {
         if (!(has_rest = !ciwic_parser_init_declarator_list(parser, &rest))) {
             parser->pos = pos;
             return 1;
@@ -1749,7 +1749,7 @@ int ciwic_parser_declaration(ciwic_parser *parser, ciwic_declaration *decl) {
         return 1;
     }
 
-    if (ciwic_parser_match_punctuation(parser, ";")) {
+    if (ciwic_parser_punctuation(parser, ";")) {
         parser->pos = pos;
         return 1;
     }
@@ -1757,4 +1757,465 @@ int ciwic_parser_declaration(ciwic_parser *parser, ciwic_declaration *decl) {
     decl->specifiers = specifiers;
     decl->list = list;
     return 0;
+}
+
+
+int ciwic_parser_labeled_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    string ident;
+    ciwic_expr expr;
+    ciwic_statement rest;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_identifier(parser, &ident)) {
+        if (ciwic_parser_punctuation(parser, ":")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &rest)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_label;
+        stmt->labeled.label_ident = ident;
+        stmt->labeled.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->labeled.stmt = rest;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "case")) {
+        if (ciwic_parser_const_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+        if (ciwic_parser_punctuation(parser, ":")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &rest)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_case;
+        stmt->labeled.case_expr = expr;
+        stmt->labeled.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->labeled.stmt = rest;
+        return 0;
+    }
+    if (!ciwic_parser_keyword(parser, "default")) {
+        if (ciwic_parser_punctuation(parser, ":")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &rest)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_default;
+        stmt->labeled.case_expr = expr;
+        stmt->labeled.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->labeled.stmt = rest;
+        return 0;
+    }
+
+    parser->pos = pos;
+    return 1;
+}
+
+int ciwic_parser_block_list(ciwic_parser *parser, ciwic_statement *stmt) {
+    ciwic_statement head;
+    ciwic_statement rest;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_statement(parser, &head)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int has_rest = !ciwic_parser_block_list(parser, &rest);
+
+    stmt->type = ciwic_statement_block;
+
+    stmt->block.head = malloc(sizeof(ciwic_statement));
+    *stmt->block.head = head;
+
+    if (has_rest) {
+        stmt->block.rest = malloc(sizeof(ciwic_statement));
+        *stmt->block.rest = rest;
+    } else {
+        stmt->block.rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_compound_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    ciwic_statement inner;
+    int pos = parser->pos;
+
+    if (ciwic_parser_punctuation(parser, "{")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_block_list(parser, &inner)) {
+        inner.type = ciwic_statement_null;
+    }
+
+    if (ciwic_parser_punctuation(parser, "}")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *stmt = inner;
+    return 0;
+}
+
+int ciwic_parser_expr_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    ciwic_expr expr;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_expr(parser, &expr)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_punctuation(parser, ";")) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    stmt->type = ciwic_statement_expr;
+    stmt->expr = expr;
+    return 0;
+}
+
+int ciwic_parser_selection_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    ciwic_expr expr;
+    ciwic_statement fst_stmt, else_stmt;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_keyword(parser, "if")) {
+        if (ciwic_parser_punctuation(parser, "(")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &fst_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        int has_else = !ciwic_parser_keyword(parser, "else");
+
+        if (has_else && ciwic_parser_statement(parser, &else_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_if;
+        stmt->if_stmt.expr = expr;
+        stmt->if_stmt.if_then = malloc(sizeof(ciwic_statement));
+        *stmt->if_stmt.if_then = fst_stmt;
+
+        if (has_else) {
+            stmt->if_stmt.if_else = malloc(sizeof(ciwic_statement));
+            *stmt->if_stmt.if_else = else_stmt;
+        } else {
+            stmt->if_stmt.if_else = NULL;
+        }
+
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "switch")) {
+        if (ciwic_parser_punctuation(parser, "(")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &fst_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_switch;
+        stmt->switch_stmt.expr = expr;
+        stmt->switch_stmt.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->switch_stmt.stmt = fst_stmt;
+        return 0;
+    }
+
+    parser->pos = pos;
+    return 1;
+}
+
+int ciwic_parser_iteration_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    ciwic_declaration pre_decl;
+    ciwic_expr expr, pre_expr, test_expr, post_expr;
+    ciwic_statement inner_stmt;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_keyword(parser, "while")) {
+        if (ciwic_parser_punctuation(parser, "(")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &inner_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_while;
+        stmt->while_stmt.expr = expr;
+        stmt->while_stmt.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->while_stmt.stmt = inner_stmt;
+
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "do")) {
+        if (ciwic_parser_statement(parser, &inner_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_keyword(parser, "while")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, "(")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_expr(parser, &expr)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_do_while;
+        stmt->while_stmt.expr = expr;
+        stmt->while_stmt.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->while_stmt.stmt = inner_stmt;
+
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "for")) {
+        if (ciwic_parser_punctuation(parser, "(")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        int has_pre_decl = !ciwic_parser_declaration(parser, &pre_decl);
+
+        int has_pre_expr = !has_pre_decl && ciwic_parser_expr(parser, &pre_expr);
+
+        if (!has_pre_decl && ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        int has_test_expr = !ciwic_parser_expr(parser, &test_expr);
+
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        int has_post_expr = !ciwic_parser_expr(parser, &post_expr);
+
+        if (ciwic_parser_punctuation(parser, ")")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_statement(parser, &inner_stmt)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_for;
+
+        if (has_pre_decl) {
+            stmt->for_stmt.pre_decl = malloc(sizeof(ciwic_declaration));
+            *stmt->for_stmt.pre_decl = pre_decl;
+        } else {
+            stmt->for_stmt.pre_decl = NULL;
+        }
+
+        if (has_pre_expr) {
+            stmt->for_stmt.pre_expr = malloc(sizeof(ciwic_expr));
+            *stmt->for_stmt.pre_expr = pre_expr;
+        } else {
+            stmt->for_stmt.pre_expr = NULL;
+        }
+
+        if (has_test_expr) {
+            stmt->for_stmt.test_expr = malloc(sizeof(ciwic_expr));
+            *stmt->for_stmt.test_expr = test_expr;
+        } else {
+            stmt->for_stmt.test_expr = NULL;
+        }
+
+        if (has_post_expr) {
+            stmt->for_stmt.post_expr = malloc(sizeof(ciwic_expr));
+            *stmt->for_stmt.post_expr = post_expr;
+        } else {
+            stmt->for_stmt.post_expr = NULL;
+        }
+
+        stmt->for_stmt.stmt = malloc(sizeof(ciwic_statement));
+        *stmt->for_stmt.stmt = inner_stmt;
+
+        return 0;
+    }
+
+    parser->pos = pos;
+    return 1;
+}
+
+int ciwic_parser_jump_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    int pos = parser->pos;
+
+    if (!ciwic_parser_keyword(parser, "goto")) {
+        string ident;
+        if (ciwic_parser_identifier(parser, &ident)) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_goto;
+        stmt->goto_ident = ident;
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "continue")) {
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_continue;
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "break")) {
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_break;
+        return 0;
+    }
+
+    if (!ciwic_parser_keyword(parser, "return")) {
+        ciwic_expr expr;
+
+        int has_expr = !ciwic_parser_expr(parser, &expr);
+
+        if (ciwic_parser_punctuation(parser, ";")) {
+            parser->pos = pos;
+            return 1;
+        }
+
+        stmt->type = ciwic_statement_return;
+
+        if (has_expr) {
+            stmt->return_expr = malloc(sizeof(ciwic_expr));
+            *stmt->return_expr = expr;
+        } else {
+            stmt->return_expr = NULL;
+        }
+
+        return 0;
+    }
+
+    parser->pos = pos;
+    return 1;
+}
+
+int ciwic_parser_statement(ciwic_parser *parser, ciwic_statement *stmt) {
+    if (!ciwic_parser_labeled_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_compound_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_expr_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_selection_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_iteration_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_jump_statement(parser, stmt)) {
+        return 0;
+    }
+    if (!ciwic_parser_punctuation(parser, ";")) {
+        stmt->type = ciwic_statement_null;
+        return 0;
+    }
+
+    return 1;
 }

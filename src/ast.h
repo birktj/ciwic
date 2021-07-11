@@ -280,6 +280,66 @@ typedef struct ciwic_param_list {
 } ciwic_param_list;
 
 
+typedef enum {
+    ciwic_statement_label,
+    ciwic_statement_case,
+    ciwic_statement_default,
+    ciwic_statement_block,
+    ciwic_statement_expr,
+    ciwic_statement_if,
+    ciwic_statement_switch,
+    ciwic_statement_while,
+    ciwic_statement_do_while,
+    ciwic_statement_for,
+    ciwic_statement_goto,
+    ciwic_statement_continue,
+    ciwic_statement_break,
+    ciwic_statement_return,
+    ciwic_statement_null,
+} ciwic_statement_type;
+
+typedef struct ciwic_statement {
+    ciwic_statement_type type;
+    union {
+        struct {
+            union {
+                string label_ident;
+                ciwic_expr case_expr;
+            };
+            struct ciwic_statement *stmt;
+        } labeled;
+        struct {
+            struct ciwic_statement *head;
+            struct ciwic_statement *rest; // Can be null
+        } block;
+        ciwic_expr expr;
+        struct {
+            ciwic_expr expr;
+            struct ciwic_statement *if_then;
+            struct ciwic_statement *if_else; // Can be null
+        } if_stmt;
+        struct {
+            ciwic_expr expr;
+            struct ciwic_statement *stmt;
+        } switch_stmt;
+        struct {
+            ciwic_expr expr;
+            struct ciwic_statement *stmt;
+        } while_stmt;
+        struct {
+            // At most one of pre_decl and pre_expr is non-null
+            ciwic_declaration *pre_decl; // Can be null
+            ciwic_expr *pre_expr; // Can be null
+            ciwic_expr *test_expr; // Can be null
+            ciwic_expr *post_expr; // Can be null
+            struct ciwic_statement *stmt;
+        } for_stmt;
+        string goto_ident;
+        ciwic_expr *return_expr; // Can be null
+    };
+} ciwic_statement;
+
+
 int ciwic_declarator_is_abstract(ciwic_declarator *declarator);
 
 void ciwic_print_expr(ciwic_expr *expr, int indent);
@@ -287,3 +347,4 @@ void ciwic_print_declaration_specifiers(ciwic_declaration_specifiers *specs, int
 void ciwic_print_declarator(ciwic_declarator *decl, int indent);
 void ciwic_print_declaration(ciwic_declaration *decl, int indent);
 void ciwic_print_initializer(ciwic_initializer *init, int indent);
+void ciwic_print_statement(ciwic_statement *stmt, int indent);

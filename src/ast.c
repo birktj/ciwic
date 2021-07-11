@@ -334,3 +334,94 @@ void ciwic_print_declaration(ciwic_declaration *decl, int indent) {
         list = list->rest;
     }
 }
+
+void ciwic_print_statement(ciwic_statement *stmt, int indent) {
+    printf("%*cstatement: ", indent, ' ');
+
+    switch (stmt->type) {
+        case ciwic_statement_label:
+            printf("label\n");
+            printf("%*cident: %.*s\n", indent+4, ' ', stmt->labeled.label_ident.len, stmt->labeled.label_ident.text);
+            ciwic_print_statement(stmt->labeled.stmt, indent+4);
+            break;
+        case ciwic_statement_case:
+            printf("case\n");
+            ciwic_print_expr(&stmt->labeled.case_expr, indent+4);
+            ciwic_print_statement(stmt->labeled.stmt, indent+4);
+            break;
+        case ciwic_statement_default:
+            printf("default\n");
+            ciwic_print_statement(stmt->labeled.stmt, indent+4);
+            break;
+        case ciwic_statement_block:
+            printf("block\n");
+            ciwic_print_statement(stmt->block.head, indent+4);
+            if (stmt->block.rest != NULL)
+                ciwic_print_statement(stmt->block.rest, indent+4);
+            break;
+        case ciwic_statement_expr:
+            printf("expr\n");
+            ciwic_print_expr(&stmt->expr, indent+4);
+            break;
+        case ciwic_statement_if:
+            printf("if\n");
+            ciwic_print_expr(&stmt->if_stmt.expr, indent+4);
+            ciwic_print_statement(stmt->if_stmt.if_then, indent+4);
+            if (stmt->if_stmt.if_else != NULL)
+                ciwic_print_statement(stmt->if_stmt.if_else, indent+4);
+            break;
+        case ciwic_statement_switch:
+            printf("switch\n");
+            ciwic_print_expr(&stmt->switch_stmt.expr, indent+4);
+            ciwic_print_statement(stmt->switch_stmt.stmt, indent+4);
+            break;
+        case ciwic_statement_while:
+            printf("while\n");
+            ciwic_print_expr(&stmt->while_stmt.expr, indent+4);
+            ciwic_print_statement(stmt->while_stmt.stmt, indent+4);
+            break;
+        case ciwic_statement_do_while:
+            printf("do while\n");
+            ciwic_print_statement(stmt->while_stmt.stmt, indent+4);
+            ciwic_print_expr(&stmt->while_stmt.expr, indent+4);
+            break;
+        case ciwic_statement_for:
+            printf("for\n");
+            printf("%*cpre decl:\n", indent+4, ' ');
+            if (stmt->for_stmt.pre_decl != NULL)
+                ciwic_print_declaration(stmt->for_stmt.pre_decl, indent+8);
+
+            printf("%*cpre expr:\n", indent+4, ' ');
+            if (stmt->for_stmt.pre_expr != NULL)
+                ciwic_print_expr(stmt->for_stmt.pre_expr, indent+8);
+
+            printf("%*ctest expr:\n", indent+4, ' ');
+            if (stmt->for_stmt.test_expr != NULL)
+                ciwic_print_expr(stmt->for_stmt.test_expr, indent+8);
+
+            printf("%*cpost expr:\n", indent+4, ' ');
+            if (stmt->for_stmt.post_expr != NULL)
+                ciwic_print_expr(stmt->for_stmt.post_expr, indent+8);
+
+            ciwic_print_statement(stmt->for_stmt.stmt, indent+4);
+            break;
+        case ciwic_statement_goto:
+            printf("goto\n");
+            printf("%*cident: %.*s\n", indent+4, ' ', stmt->goto_ident.len, stmt->goto_ident.text);
+            break;
+        case ciwic_statement_continue:
+            printf("continue\n");
+            break;
+        case ciwic_statement_break:
+            printf("break\n");
+            break;
+        case ciwic_statement_return:
+            printf("return\n");
+            if (stmt->return_expr != NULL)
+                ciwic_print_expr(stmt->return_expr, indent+4);
+            break;
+        case ciwic_statement_null:
+            printf("null\n");
+            break;
+    }
+}
