@@ -11,13 +11,13 @@ int main() {
     fgets(buf, 100, stdin);
 
     ciwic_parser parser = ciwic_parser_new(buf, 100);
-    ciwic_statement stmt;
+    ciwic_translation_unit translation_unit;
 
-    if (ciwic_parser_statement(&parser, &stmt)) {
+    if (ciwic_parser_translation_unit(&parser, &translation_unit)) {
         printf("Error: could not parse\n");
     } else {
         printf("Successfully parsed:\n");
-        ciwic_print_statement(&stmt, 0);
+        ciwic_print_translation_unit(&translation_unit, 0);
         printf("\n");
     }
 

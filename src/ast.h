@@ -339,6 +339,32 @@ typedef struct ciwic_statement {
     };
 } ciwic_statement;
 
+typedef struct ciwic_declaration_list {
+    ciwic_declaration head;
+    struct ciwic_declaration_list *rest; // Can be null
+} ciwic_declaration_list;
+
+typedef struct ciwic_func_definition {
+    ciwic_declaration_specifiers specifiers;
+    ciwic_declarator declarator;
+    ciwic_declaration_list *decl_list; // Can be null
+    ciwic_statement statement;
+} ciwic_func_definition;
+
+typedef enum {
+    ciwic_definition_func,
+    ciwic_definition_decl,
+} ciwic_definition_type;
+
+typedef struct ciwic_translation_unit {
+    ciwic_definition_type def_type;
+    union {
+        ciwic_func_definition func;
+        ciwic_declaration decl;
+    };
+    struct ciwic_translation_unit *rest; // Can be null
+} ciwic_translation_unit;
+
 
 int ciwic_declarator_is_abstract(ciwic_declarator *declarator);
 
@@ -348,3 +374,4 @@ void ciwic_print_declarator(ciwic_declarator *decl, int indent);
 void ciwic_print_declaration(ciwic_declaration *decl, int indent);
 void ciwic_print_initializer(ciwic_initializer *init, int indent);
 void ciwic_print_statement(ciwic_statement *stmt, int indent);
+void ciwic_print_translation_unit(ciwic_translation_unit *translation_unit, int indent);

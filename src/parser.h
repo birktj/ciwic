@@ -22,3 +22,4 @@ int ciwic_parser_type_name(ciwic_parser *parser, ciwic_type_name *name);
 
 int ciwic_parser_statement(ciwic_parser *parser, ciwic_statement *name);
 
+int ciwic_parser_translation_unit(ciwic_parser *parser, ciwic_translation_unit *translation_unit);

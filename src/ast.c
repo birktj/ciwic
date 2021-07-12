@@ -425,3 +425,34 @@ void ciwic_print_statement(ciwic_statement *stmt, int indent) {
             break;
     }
 }
+
+void ciwic_print_declaration_list(ciwic_declaration_list *decl_list, int indent) {
+    printf("%*cdeclaration list: \n", indent, ' ');
+    ciwic_print_declaration(&decl_list->head, indent+4);
+    if (decl_list->rest != NULL)
+        ciwic_print_declaration_list(decl_list->rest, indent+4);
+}
+
+void ciwic_print_func_definition(ciwic_func_definition *func_def, int indent) {
+    printf("%*cfunction definition: \n", indent, ' ');
+    ciwic_print_declaration_specifiers(&func_def->specifiers, indent+4);
+    ciwic_print_declarator(&func_def->declarator, indent+4);
+    if (func_def->decl_list != NULL)
+        ciwic_print_declaration_list(func_def->decl_list, indent+4);
+    ciwic_print_statement(&func_def->statement, indent+4);
+}
+
+void ciwic_print_translation_unit(ciwic_translation_unit *translation_unit, int indent) {
+    printf("%*ctranslation unit: \n", indent, ' ');
+    switch (translation_unit->def_type) {
+        case ciwic_definition_func:
+            ciwic_print_func_definition(&translation_unit->func, indent+4);
+            break;
+        case ciwic_definition_decl:
+            ciwic_print_declaration(&translation_unit->decl, indent+4);
+            break;
+    }
+
+    if (translation_unit->rest != NULL)
+        ciwic_print_translation_unit(translation_unit->rest, indent+4);
+}

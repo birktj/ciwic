@@ -2219,3 +2219,111 @@ int ciwic_parser_statement(ciwic_parser *parser, ciwic_statement *stmt) {
 
     return 1;
 }
+
+int ciwic_parser_declaration_list(ciwic_parser *parser, ciwic_declaration_list *list) {
+    ciwic_declaration decl;
+    ciwic_declaration_list rest;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration(parser, &decl)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int has_rest = !ciwic_parser_declaration_list(parser, &rest);
+
+    list->head = decl;
+
+    if (has_rest) {
+        list->rest = malloc(sizeof(ciwic_declaration_list));
+        *list->rest = rest;
+    } else {
+        list->rest = NULL;
+    }
+
+    return 0;
+}
+
+int ciwic_parser_func_definition(ciwic_parser *parser, ciwic_func_definition *def) {
+    ciwic_declaration_specifiers specifiers;
+    ciwic_declarator declarator;
+    ciwic_declaration_list decl_list;
+    ciwic_statement stmt;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_declaration_specifiers(parser, &specifiers)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    if (ciwic_parser_declarator(parser, NULL, &declarator)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    int has_decl_list = !ciwic_parser_declaration_list(parser, &decl_list);
+
+    if (ciwic_parser_compound_statement(parser, &stmt)) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    def->specifiers = specifiers;
+    def->declarator = declarator;
+
+    if (has_decl_list) {
+        def->decl_list = malloc(sizeof(ciwic_declaration_list));
+        *def->decl_list = decl_list;
+    } else {
+        def->decl_list = NULL;
+    }
+
+    def->statement = stmt;
+
+    return 0;
+}
+
+int ciwic_parser_translation_unit(ciwic_parser *parser, ciwic_translation_unit *translation_unit) {
+    ciwic_func_definition func;
+    ciwic_declaration decl;
+    ciwic_translation_unit rest;
+
+    int pos = parser->pos;
+
+    if (!ciwic_parser_func_definition(parser, &func)) {
+        int has_rest = !ciwic_parser_translation_unit(parser, &rest);
+
+        translation_unit->def_type = ciwic_definition_func;
+        translation_unit->func = func;
+
+        if (has_rest) {
+            translation_unit->rest = malloc(sizeof(ciwic_translation_unit));
+            *translation_unit->rest = rest;
+        } else {
+            translation_unit->rest = NULL;
+        }
+
+        return 0;
+    }
+
+    if (!ciwic_parser_declaration(parser, &decl)) {
+        int has_rest = !ciwic_parser_translation_unit(parser, &rest);
+
+        translation_unit->def_type = ciwic_definition_decl;
+        translation_unit->decl = decl;
+
+        if (has_rest) {
+            translation_unit->rest = malloc(sizeof(ciwic_translation_unit));
+            *translation_unit->rest = rest;
+        } else {
+            translation_unit->rest = NULL;
+        }
+
+        return 0;
+    }
+
+    parser->pos = pos;
+    return 1;
+}
