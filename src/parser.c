@@ -321,17 +321,138 @@ int ciwic_parser_punctuation(ciwic_parser *parser, const char* punct) {
     return 1;
 }
 
-int ciwic_parser_primary_expr(ciwic_parser *parser, ciwic_expr *res) {
+int ciwic_parser_oct_digit(ciwic_parser *parser, char *digit) {
+    char c;
+
     int pos = parser->pos;
 
+    if (ciwic_parser_char(parser, &c)) {
+        pos = parser->pos;
+        return 1;
+    }
+
+    if (c < '0' || c > '7') {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *digit = c;
+    return 0;
+}
+
+int ciwic_parser_dec_digit(ciwic_parser *parser, char *digit) {
+    char c;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_char(parser, &c)) {
+        pos = parser->pos;
+        return 1;
+    }
+
+    if (c < '0' || c > '9') {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *digit = c;
+    return 0;
+}
+
+int ciwic_parser_hex_digit(ciwic_parser *parser, char *digit) {
+    char c;
+
+    int pos = parser->pos;
+
+    if (ciwic_parser_char(parser, &c)) {
+        pos = parser->pos;
+        return 1;
+    }
+
+    if ((c < '0' || c > '9') && (c < 'a' || c > 'f')) {
+        parser->pos = pos;
+        return 1;
+    }
+
+    *digit = c;
+    return 0;
+}
+
+int ciwic_parser_constant_integer(ciwic_parser *parser, ciwic_constant *constant) {
+    char c;
+
+    int pos = parser->pos;
+
+    ciwic_parser_whitespace(parser);
+
+    int start_pos = parser->pos;
+
+    if (!ciwic_parser_match_string(parser, "0x")) {
+        if (ciwic_parser_hex_digit(parser, &c)) {
+            parser->pos = pos;
+            return 1;
+        }
+        while (!ciwic_parser_hex_digit(parser, &c));
+    } else if (!ciwic_parser_match_string(parser, "0")) {
+        while (!ciwic_parser_oct_digit(parser, &c));
+    } else {
+        if (ciwic_parser_dec_digit(parser, &c)) {
+            parser->pos = pos;
+            return 1;
+        }
+        while (!ciwic_parser_dec_digit(parser, &c));
+    }
+
+    int unsigned = !ciwic_parser_match_string(parser, "u")
+        || !ciwic_parser_match_string(parser, "U"));
+
+    !ciwic_parser_match_string(parser, "ll")
+        || !ciwic_parser_match_string(parser, "LL")
+        || !ciwic_parser_match_string(parser, "l")
+        || !ciwic_parser_match_string(parser, "L");
+
+    if (!unsigned) {
+        !ciwic_parser_match_string(parser, "u")
+            || !ciwic_parser_match_string(parser, "U"));
+    }
+
+    int len = parser->pos - start_pos;
+
+    char *res = malloc(len+1);
+
+    memcpy(res, &parser->text[start_pos], len);
+
+    constant->type = ciwic_constant_integer;
+    constant->raw_text = res;
+    return 0;
+}
+
+int ciwic_parser_constant(ciwic_parser *parser, ciwic_constant *constant) {
+    if (!ciwic_parser_constant_integer(parser, constant)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+int ciwic_parser_primary_expr(ciwic_parser *parser, ciwic_expr *res) {
     string identifier;
+    ciwic_constant constant;
+
+    int pos = parser->pos;
+
     if (!ciwic_parser_identifier(parser, &identifier)) {
         res->type = ciwic_expr_type_identifier;
         res->identifier = identifier;
         return 0;
     }
 
-    // TODO: constant
+    if (!ciwic_parser_constant(parser, &constant)) {
+        res->type = ciwic_expr_type_constant;
+        res->constant = constant;
+        return 0;
+    }
+
     // TODO: string literal
 
     if (!ciwic_parser_punctuation(parser, "(")) {

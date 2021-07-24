@@ -2,6 +2,19 @@
 
 #include <parselib.h>
 
+// Constant
+
+typedef enum {
+    ciwic_constant_integer,
+    ciwic_constant_float,
+    ciwic_constant_char,
+} ciwic_constant_type;
+
+typedef struct {
+    ciwic_constant_type type;
+    char *raw_text;
+} ciwic_constant;
+
 // Expressions
 
 typedef enum {
@@ -135,7 +148,7 @@ typedef struct ciwic_expr {
     ciwic_expr_type type;
     union {
         string identifier;
-        string constant;
+        ciwic_constant constant;
         struct {
             ciwic_expr_unary_op op;
             struct ciwic_expr *inner;

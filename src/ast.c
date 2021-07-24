@@ -22,6 +22,24 @@ int ciwic_declarator_is_abstract(ciwic_declarator *declarator) {
     return 1;
 }
 
+void ciwic_print_constant(ciwic_constant *constant, int indent) {
+    printf("%*cconstant:\n", indent, ' ');
+
+    printf("%*ctype: ", indent+4, ' ');
+    switch (constant->type) {
+        case ciwic_constant_integer:
+            printf("integer\n");
+            break;
+        case ciwic_constant_float:
+            printf("float\n");
+            break;
+        case ciwic_constant_char:
+            printf("char\n");
+            break;
+    }
+    printf("%*ctext: %s\n", indent+4, ' ', constant->raw_text);
+}
+
 void ciwic_print_arg_list(ciwic_expr_arg_list *list, int indent) {
     printf("%*carg list:\n", indent, ' ');
     ciwic_print_expr(&list->head, indent+4);
@@ -78,7 +96,8 @@ void ciwic_print_expr(ciwic_expr *expr, int indent) {
             printf("%.*s\n", expr->identifier.len, expr->identifier.text);
             break;
         case ciwic_expr_type_constant:
-            printf("%*cconstant:\n", indent, ' ');
+            //printf("%*cconstant:\n", indent, ' ');
+            ciwic_print_constant(&expr->constant, indent);
             break;
         case ciwic_expr_type_unary_op:
             op = ciwic_expr_unary_op_table[expr->unary_op.op];
